@@ -16,7 +16,7 @@ namespace ArkRounds
     {
         public const string ModId = "com.gilupy.rounds.arkrounds";
         public const string ModName = "ArkRounds";
-        public const string Version = "1.1.0";
+        public const string Version = "1.3.0";
         public const string ModInitials = "ARK";
 
         private void Awake()
@@ -35,7 +35,7 @@ namespace ArkRounds
             CustomCard.BuildCard<SurtrTwilight>();
             CustomCard.BuildCard<MyrtleGoldenApples>();
 
-            // --- New cards ---
+            // --- Second set ---
             CustomCard.BuildCard<ChenChiXiao>();
             CustomCard.BuildCard<EyjafjallaVolcanicSparks>();
             CustomCard.BuildCard<HoshigumaOnisResolve>();
@@ -44,6 +44,17 @@ namespace ArkRounds
             CustomCard.BuildCard<WChaoticBounce>();
             CustomCard.BuildCard<SpecterUnchainedReturn>();
             CustomCard.BuildCard<NearlRadiantKnight>();
+
+            // --- Third set ---
+            CustomCard.BuildCard<LapplandInsatiableWolf>();
+            CustomCard.BuildCard<MudrockRockbreaker>();
+            CustomCard.BuildCard<BlazeChainsawCharge>();
+            CustomCard.BuildCard<PtilopsisSerenity>();
+            CustomCard.BuildCard<AmiyaArcaneEcho>();
+            CustomCard.BuildCard<RosmontisMemoryStorm>();
+            CustomCard.BuildCard<MostimaTimeLock>();
+            CustomCard.BuildCard<KaltsitMedicalProtocol>();
+            CustomCard.BuildCard<HellagurDuelistsCrescendo>();
         }
     }
 
@@ -321,7 +332,7 @@ namespace ArkRounds
     }
 
     // ==================================================================
-    //  NEW CARDS
+    //  SECOND SET
     // ==================================================================
 
     // ------------------------------------------------------------------
@@ -555,5 +566,480 @@ namespace ArkRounds
             new CardInfoStat { positive = true,  stat = "Regeneration", amount = "+2 HP/s", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
             new CardInfoStat { positive = false, stat = "Damage",       amount = "-10%",   simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
         };
+    }
+
+    // ==================================================================
+    //  THIRD SET
+    // ==================================================================
+
+    // ------------------------------------------------------------------
+    //  14. LAPPLAND - INSATIABLE WOLF  (Uncommon)
+    //  Inspired by "Stay Hungry" from Root Cards: damage grows with every
+    //  shot and resets when you hit someone.
+    // ------------------------------------------------------------------
+    public class LapplandInsatiableWolf : ArknightsCard
+    {
+        private HungryStreak streak;
+
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            cardInfo.allowMultiple = false; // the streak component isn't stackable
+        }
+
+        public override void OnAddCard(Player player, Gun gun, GunAmmo gunAmmo, CharacterData data,
+                                       HealthHandler health, Gravity gravity, Block block,
+                                       CharacterStatModifiers characterStats)
+        {
+            streak = player.gameObject.GetComponent<HungryStreak>();
+            if (streak == null)
+            {
+                streak = player.gameObject.AddComponent<HungryStreak>();
+            }
+        }
+
+        public override void OnRemoveCard()
+        {
+            if (streak != null)
+            {
+                Destroy(streak);
+                streak = null;
+            }
+        }
+
+        protected override string GetTitle() => "Lappland - Insatiable Wolf";
+        protected override string GetDescription() =>
+            "Every miss only sharpens the appetite. The longer the chase, the harder the bite.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Uncommon;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.DestructiveRed;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Damage per Shot", amount = "+8%",          simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Damage Bonus",    amount = "Resets on hit", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    /// <summary>
+    /// Attached to the player by Lappland's card. Each shot fired raises gun.damage
+    /// by GrowthPerShot (multiplicatively, capped at MaxBonus). Landing a hit on an
+    /// opponent removes the accumulated bonus. The bonus also clears when the round
+    /// ends or the player dies, so it never carries into the next point.
+    ///
+    /// Only the bonus this component added is ever removed, so it doesn't fight with
+    /// other cards that change gun.damage.
+    /// </summary>
+    public class HungryStreak : MonoBehaviour
+    {
+        public const float GrowthPerShot = 0.08f;  // +8% damage per shot
+        public const float MaxMultiplier = 3f;     // stop growing at 3x (+200%)
+        public const float MinShotGap = 0.05f;     // seconds; multi-bullet shots count as one shot
+
+        private CharacterData data;
+        private Gun gun;
+        private float appliedMultiplier = 1f;
+        private float lastGrowTime = -1f;
+        private bool subscribed;
+
+        private void Start()
+        {
+            data = GetComponent<CharacterData>();
+            if (data == null) return;
+
+            gun = data.weaponHandler != null ? data.weaponHandler.gun : null;
+            if (gun == null) return;
+
+            // NOTE: these two hooks are the ROUNDS API surface to check if this fails to
+            // compile against your Assembly-CSharp:
+            //   Gun.ShootPojectileAction          : Action<GameObject>   (sic - the typo is in the game)
+            //   CharacterStatModifiers.DealtDamageAction : Action<Vector2, bool>
+            gun.ShootPojectileAction += OnShoot;
+            data.stats.DealtDamageAction += OnDealtDamage;
+            subscribed = true;
+        }
+
+        private void OnShoot(GameObject projectile)
+        {
+            if (gun == null) return;
+            if (Time.time - lastGrowTime < MinShotGap) return; // shotgun blasts count once
+            lastGrowTime = Time.time;
+
+            float next = Mathf.Min(appliedMultiplier * (1f + GrowthPerShot), MaxMultiplier);
+            float step = next / appliedMultiplier;
+            if (step <= 1f) return; // already capped
+
+            gun.damage *= step;
+            appliedMultiplier = next;
+        }
+
+        private void OnDealtDamage(Vector2 damage, bool selfDamage)
+        {
+            if (selfDamage) return;
+            ResetBonus();
+        }
+
+        private void ResetBonus()
+        {
+            if (gun != null && appliedMultiplier > 0f && appliedMultiplier != 1f)
+            {
+                gun.damage /= appliedMultiplier;
+            }
+            appliedMultiplier = 1f;
+        }
+
+        private void Update()
+        {
+            if (data == null) return;
+
+            // Clear the streak between points and on death.
+            if ((data.dead || !data.isPlaying) && appliedMultiplier != 1f)
+            {
+                ResetBonus();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            ResetBonus();
+
+            if (!subscribed) return;
+            if (gun != null) gun.ShootPojectileAction -= OnShoot;
+            if (data != null && data.stats != null) data.stats.DealtDamageAction -= OnDealtDamage;
+            subscribed = false;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    //  15. MUDROCK - ROCKBREAKER  (Rare)
+    //  +70% max health, +30% damage, -30% move speed
+    // ------------------------------------------------------------------
+    public class MudrockRockbreaker : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            statModifiers.health = 1.7f;          // +70% max health
+            gun.damage = 1.3f;                    // +30% damage
+            statModifiers.movementSpeed = 0.7f;   // -30% movement speed
+        }
+
+        protected override string GetTitle() => "Mudrock - Rockbreaker";
+        protected override string GetDescription() =>
+            "Plant your feet and swing. The ground will move before you do.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Rare;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.NatureBrown;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Health",         amount = "+70%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Damage",         amount = "+30%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Movement Speed", amount = "-30%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  16. BLAZE - CHAINSAW CHARGE  (Uncommon)
+    //  +50% damage, +20% max health, -20% attack speed
+    // ------------------------------------------------------------------
+    public class BlazeChainsawCharge : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            gun.damage = 1.5f;             // +50% damage
+            statModifiers.health = 1.2f;   // +20% max health
+            gun.attackSpeed = 1.25f;       // 25% longer delay between shots = -20% fire rate
+        }
+
+        protected override string GetTitle() => "Blaze - Chainsaw Charge";
+        protected override string GetDescription() =>
+            "Revs up slowly, then goes through everything in the way.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Uncommon;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.FirepowerYellow;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Damage",       amount = "+50%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Health",       amount = "+20%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Attack Speed", amount = "-20%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  17. PTILOPSIS - SERENITY  (Common)
+    //  -20% reload time, -20% block cooldown, -15% damage
+    // ------------------------------------------------------------------
+    public class PtilopsisSerenity : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            gun.reloadTime = 0.8f;         // -20% reload time (shorter = better)
+            block.cdMultiplier = 0.8f;     // -20% block cooldown
+            gun.damage = 0.85f;            // -15% damage
+        }
+
+        protected override string GetTitle() => "Ptilopsis - Serenity";
+        protected override string GetDescription() =>
+            "Calm hands, steady rhythm. Always ready for the next moment.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Common;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.TechWhite;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Reload Time",    amount = "-20%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Block Cooldown", amount = "-20%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Damage",         amount = "-15%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  18. AMIYA - ARCANE ECHO  (Common)
+    //  +25% bullet speed, +10% attack speed, -10% max health
+    // ------------------------------------------------------------------
+    public class AmiyaArcaneEcho : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            gun.projectileSpeed = 1.25f;   // +25% bullet speed
+            gun.attackSpeed = 1f / 1.1f;   // +10% fire rate (attackSpeed is a delay)
+            statModifiers.health = 0.9f;   // -10% max health
+        }
+
+        protected override string GetTitle() => "Amiya - Arcane Echo";
+        protected override string GetDescription() =>
+            "A young leader's arts, quick and bright. Still learning how much it costs.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Common;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.MagicPink;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Bullet Speed", amount = "+25%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Attack Speed", amount = "+10%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Health",       amount = "-10%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  19. ROSMONTIS - MEMORY STORM  (Rare)
+    //  +3 max ammo, +20% bullet size, -15% max health
+    // ------------------------------------------------------------------
+    public class RosmontisMemoryStorm : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            gun.ammo = 3;                  // +3 max ammo (additive)
+            gun.size = 0.2f;               // +20% bullet size (additive in ROUNDS)
+            statModifiers.health = 0.85f;  // -15% max health
+        }
+
+        protected override string GetTitle() => "Rosmontis - Memory Storm";
+        protected override string GetDescription() =>
+            "Too many memories to hold, so she lets them fly. Fragile, but never short on ammunition.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Rare;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.PoisonGreen;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Max Ammo",    amount = "+3",   simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Bullet Size", amount = "+20%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Health",      amount = "-15%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  20. MOSTIMA - TIME LOCK  (Rare)
+    //  -50% block cooldown, +1 block charge, -25% damage
+    // ------------------------------------------------------------------
+    public class MostimaTimeLock : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            block.cdMultiplier = 0.5f;     // -50% block cooldown
+            block.additionalBlocks = 1;    // +1 block charge
+            gun.damage = 0.75f;            // -25% damage
+        }
+
+        protected override string GetTitle() => "Mostima - Time Lock";
+        protected override string GetDescription() =>
+            "She would rather stop the fight than win it. Always has another moment in reserve.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Rare;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.EvilPurple;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Block Cooldown", amount = "-50%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Block Charges",  amount = "+1",   simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Damage",         amount = "-25%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  21. KAL'TSIT - MEDICAL PROTOCOL  (Rare)
+    //  +25% max health, +3 HP/s regeneration, -20% attack speed
+    //  NOTE: regen is a flat additive value - tune it in-game if it feels off.
+    // ------------------------------------------------------------------
+    public class KaltsitMedicalProtocol : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            statModifiers.health = 1.25f;  // +25% max health
+            statModifiers.regen = 3f;      // passive regeneration (additive)
+            gun.attackSpeed = 1.25f;       // 25% longer delay between shots = -20% fire rate
+        }
+
+        protected override string GetTitle() => "Kal'tsit - Medical Protocol";
+        protected override string GetDescription() =>
+            "Precise, unhurried, and always three steps ahead of the wound.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Rare;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.DefensiveBlue;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Health",       amount = "+25%",    simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Regeneration", amount = "+3 HP/s", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Attack Speed", amount = "-20%",    simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  22. HELLAGUR - DUELIST'S CRESCENDO  (Rare, no downside)
+    //  Stay Hungry-style scaling without the reset: damage grows with every
+    //  shot and keeps growing even when you hit. Clears at the end of each point.
+    //  (ROUNDS only has Common / Uncommon / Rare - this is the top tier.)
+    // ------------------------------------------------------------------
+    public class HellagurDuelistsCrescendo : ArknightsCard
+    {
+        private CrescendoGrowth growth;
+
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            cardInfo.allowMultiple = false; // the growth component isn't stackable
+        }
+
+        public override void OnAddCard(Player player, Gun gun, GunAmmo gunAmmo, CharacterData data,
+                                       HealthHandler health, Gravity gravity, Block block,
+                                       CharacterStatModifiers characterStats)
+        {
+            growth = player.gameObject.GetComponent<CrescendoGrowth>();
+            if (growth == null)
+            {
+                growth = player.gameObject.AddComponent<CrescendoGrowth>();
+            }
+        }
+
+        public override void OnRemoveCard()
+        {
+            if (growth != null)
+            {
+                Destroy(growth);
+                growth = null;
+            }
+        }
+
+        protected override string GetTitle() => "Hellagur - Duelist's Crescendo";
+        protected override string GetDescription() =>
+            "Every swing builds on the last. The duel only ends when someone is left standing.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Rare;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.FirepowerYellow;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true, stat = "Damage per Shot", amount = "+7%",   simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true, stat = "Max Bonus",       amount = "+300%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    /// <summary>
+    /// Attached to the player by Hellagur's card. Each shot fired raises gun.damage by
+    /// GrowthPerShot (multiplicatively, capped at MaxMultiplier). Unlike HungryStreak,
+    /// landing a hit does NOT reset the bonus. It clears when the point ends or the
+    /// player dies, unless PersistAcrossPoints is true.
+    ///
+    /// Only the bonus this component added is ever removed, so it doesn't fight with
+    /// other cards that change gun.damage.
+    /// </summary>
+    public class CrescendoGrowth : MonoBehaviour
+    {
+        public const float GrowthPerShot = 0.07f;      // +7% damage per shot
+        public const float MaxMultiplier = 4f;         // stop growing at 4x (+300%)
+        public const float MinShotGap = 0.05f;         // seconds; multi-bullet shots count as one shot
+        public const bool PersistAcrossPoints = false; // true = keep the bonus for the whole match
+
+        private CharacterData data;
+        private Gun gun;
+        private float appliedMultiplier = 1f;
+        private float lastGrowTime = -1f;
+        private bool subscribed;
+
+        private void Start()
+        {
+            data = GetComponent<CharacterData>();
+            if (data == null) return;
+
+            gun = data.weaponHandler != null ? data.weaponHandler.gun : null;
+            if (gun == null) return;
+
+            // Same API note as HungryStreak: Gun.ShootPojectileAction (sic) is Action<GameObject>.
+            gun.ShootPojectileAction += OnShoot;
+            subscribed = true;
+        }
+
+        private void OnShoot(GameObject projectile)
+        {
+            if (gun == null) return;
+            if (Time.time - lastGrowTime < MinShotGap) return; // shotgun blasts count once
+            lastGrowTime = Time.time;
+
+            float next = Mathf.Min(appliedMultiplier * (1f + GrowthPerShot), MaxMultiplier);
+            float step = next / appliedMultiplier;
+            if (step <= 1f) return; // already capped
+
+            gun.damage *= step;
+            appliedMultiplier = next;
+        }
+
+        private void ResetBonus()
+        {
+            if (gun != null && appliedMultiplier > 0f && appliedMultiplier != 1f)
+            {
+                gun.damage /= appliedMultiplier;
+            }
+            appliedMultiplier = 1f;
+        }
+
+        private void Update()
+        {
+            if (PersistAcrossPoints || data == null) return;
+
+            // Clear the bonus between points and on death.
+            if ((data.dead || !data.isPlaying) && appliedMultiplier != 1f)
+            {
+                ResetBonus();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            ResetBonus();
+
+            if (!subscribed) return;
+            if (gun != null) gun.ShootPojectileAction -= OnShoot;
+            subscribed = false;
+        }
     }
 }

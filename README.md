@@ -8,7 +8,7 @@ An unofficial, fan-made [ROUNDS](https://store.steampowered.com/app/1557740/ROUN
 
 ## Install (Windows)
 
-You don't need to build anything. Download the prebuilt DLL from the [Releases page](https://github.com/Gilupy/ArkRounds/releases) and drop it into the game.
+You don't need to build anything. Download the prebuilt DLL from the [Releases page](https://github.com/<your-username>/ArkRounds/releases) and drop it into the game.
 
 1. In Steam, right-click **ROUNDS** → **Properties** → **Betas**, and select **old build for mods**. The mod won't work on the current build.
 2. Install [r2modman](https://thunderstore.io/package/ebkr/r2modman/), choose **ROUNDS**, and create a profile.
@@ -47,6 +47,15 @@ Everyone in a lobby needs the same mods and versions, or the game will desync or
 | W - Chaotic Bounce | Uncommon | +2 bounces, +20% bullet speed, -15% damage |
 | Specter - Unchained Return | Rare | +1 respawn, -25% health, -10% damage |
 | Nearl - Radiant Knight | Common | +15% health, +2 HP/s regen, -10% damage |
+| Lappland - Insatiable Wolf | Uncommon | +8% damage per shot (max +200%), resets when you hit an opponent |
+| Mudrock - Rockbreaker | Rare | +70% health, +30% damage, -30% move speed |
+| Blaze - Chainsaw Charge | Uncommon | +50% damage, +20% health, -20% attack speed |
+| Ptilopsis - Serenity | Common | -20% reload time, -20% block cooldown, -15% damage |
+| Amiya - Arcane Echo | Common | +25% bullet speed, +10% attack speed, -10% health |
+| Rosmontis - Memory Storm | Rare | +3 max ammo, +20% bullet size, -15% health |
+| Mostima - Time Lock | Rare | -50% block cooldown, +1 block charge, -25% damage |
+| Kal'tsit - Medical Protocol | Rare | +25% health, +3 HP/s regen, -20% attack speed |
+| Hellagur - Duelist's Crescendo | Rare | +7% damage per shot (max +300%), no reset on hit, clears at the end of each point |
 
 ## Requirements
 
@@ -57,7 +66,7 @@ Everyone in a lobby needs the same mods and versions, or the game will desync or
 ## Building (Arch Linux, Steam + Proton)
 
 ```bash
-git clone https://github.com/Gilupy/ArkRounds.git
+git clone https://github.com/<your-username>/ArkRounds.git
 cd ArkRounds
 bash setup_arkrounds.sh
 ```
@@ -80,4 +89,4 @@ WINEDLLOVERRIDES="winhttp=n,b" %command%
 
 ## Installing a prebuilt DLL (Linux)
 
-Put `ArkRounds.dll` from the [Releases page](https://github.com/Gilupy/ArkRounds/releases) in `ROUNDS/BepInEx/plugins/` (or your mod manager profile's `plugins` folder), and set the Proton launch option shown above. Windows users: see [Install (Windows)](#install-windows).
+Put `ArkRounds.dll` from the [Releases page](https://github.com/<your-username>/ArkRounds/releases) in `ROUNDS/BepInEx/plugins/` (or your mod manager profile's `plugins` folder), and set the Proton launch option shown above. Windows users: see [Install (Windows)](#install-windows).
