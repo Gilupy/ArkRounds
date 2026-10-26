@@ -16,7 +16,7 @@ namespace ArkRounds
     {
         public const string ModId = "com.gilupy.rounds.arkrounds";
         public const string ModName = "ArkRounds";
-        public const string Version = "1.3.0";
+        public const string Version = "1.4.0";
         public const string ModInitials = "ARK";
 
         private void Awake()
@@ -55,6 +55,11 @@ namespace ArkRounds
             CustomCard.BuildCard<MostimaTimeLock>();
             CustomCard.BuildCard<KaltsitMedicalProtocol>();
             CustomCard.BuildCard<HellagurDuelistsCrescendo>();
+
+            // --- Fourth set ---
+            CustomCard.BuildCard<UlpianusNaturalHoldfast>();
+            CustomCard.BuildCard<SkadiCorruptingGnawingTide>();
+            CustomCard.BuildCard<GladiiaUndertow>();
         }
     }
 
@@ -960,13 +965,13 @@ namespace ArkRounds
         protected override CardInfoStat[] GetStats() => new[]
         {
             new CardInfoStat { positive = true, stat = "Damage per Shot", amount = "+7%",   simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
-            new CardInfoStat { positive = true, stat = "Max Bonus",       amount = "+300%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true, stat = "Damage Cap",      amount = "None", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
         };
     }
 
     /// <summary>
     /// Attached to the player by Hellagur's card. Each shot fired raises gun.damage by
-    /// GrowthPerShot (multiplicatively, capped at MaxMultiplier). Unlike HungryStreak,
+    /// GrowthPerShot (multiplicatively, with no cap). Unlike HungryStreak,
     /// landing a hit does NOT reset the bonus. It clears when the point ends or the
     /// player dies, unless PersistAcrossPoints is true.
     ///
@@ -976,7 +981,6 @@ namespace ArkRounds
     public class CrescendoGrowth : MonoBehaviour
     {
         public const float GrowthPerShot = 0.07f;      // +7% damage per shot
-        public const float MaxMultiplier = 4f;         // stop growing at 4x (+300%)
         public const float MinShotGap = 0.05f;         // seconds; multi-bullet shots count as one shot
         public const bool PersistAcrossPoints = false; // true = keep the bonus for the whole match
 
@@ -1005,12 +1009,9 @@ namespace ArkRounds
             if (Time.time - lastGrowTime < MinShotGap) return; // shotgun blasts count once
             lastGrowTime = Time.time;
 
-            float next = Mathf.Min(appliedMultiplier * (1f + GrowthPerShot), MaxMultiplier);
-            float step = next / appliedMultiplier;
-            if (step <= 1f) return; // already capped
-
+            float step = 1f + GrowthPerShot;
             gun.damage *= step;
-            appliedMultiplier = next;
+            appliedMultiplier *= step;
         }
 
         private void ResetBonus()
@@ -1041,5 +1042,100 @@ namespace ArkRounds
             if (gun != null) gun.ShootPojectileAction -= OnShoot;
             subscribed = false;
         }
+    }
+
+    // ==================================================================
+    //  FOURTH SET
+    // ==================================================================
+
+    // ------------------------------------------------------------------
+    //  23. ULPIANUS - NATURAL HOLDFAST  (Rare)
+    //  +50% max health, +2 HP/s regeneration, +15% damage, -25% move speed
+    //  NOTE: regen is a flat additive value - tune it in-game if it feels off.
+    // ------------------------------------------------------------------
+    public class UlpianusNaturalHoldfast : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            statModifiers.health = 1.5f;          // +50% max health
+            statModifiers.regen = 2f;             // passive regeneration (additive)
+            gun.damage = 1.15f;                   // +15% damage
+            statModifiers.movementSpeed = 0.75f;  // -25% movement speed
+        }
+
+        protected override string GetTitle() => "Ulpianus - Natural Holdfast";
+        protected override string GetDescription() =>
+            "Hold the line, and let the wounds close behind you. The Consul does not give ground.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Rare;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.ColdBlue;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Health",         amount = "+50%",    simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Regeneration",   amount = "+2 HP/s", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Damage",         amount = "+15%",    simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Movement Speed", amount = "-25%",    simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  24. SKADI THE CORRUPTING HEART - GNAWING TIDE  (Rare)
+    //  +30% lifesteal, +25% attack speed, -30% max health
+    //  (Separate from the original Skadi - Abyssal Hunt card.)
+    // ------------------------------------------------------------------
+    public class SkadiCorruptingGnawingTide : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            statModifiers.lifeSteal = 0.3f;    // +30% lifesteal (additive)
+            gun.attackSpeed = 1f / 1.25f;      // +25% fire rate (attackSpeed is a delay)
+            statModifiers.health = 0.7f;       // -30% max health
+        }
+
+        protected override string GetTitle() => "Skadi the Corrupting Heart - Gnawing Tide";
+        protected override string GetDescription() =>
+            "A body that gives itself to the tide, and feeds on every wound it opens.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Rare;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.DestructiveRed;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Lifesteal",    amount = "+30%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Attack Speed", amount = "+25%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Health",       amount = "-30%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    //  25. GLADIIA - UNDERTOW  (Uncommon)
+    //  +25% bullet size, -25% reload time, -15% damage
+    // ------------------------------------------------------------------
+    public class GladiiaUndertow : ArknightsCard
+    {
+        public override void SetupCard(CardInfo cardInfo, Gun gun, ApplyCardStats cardStats,
+                                       CharacterStatModifiers statModifiers, Block block)
+        {
+            gun.size = 0.25f;              // +25% bullet size (additive in ROUNDS)
+            gun.reloadTime = 0.75f;        // -25% reload time (shorter = better)
+            gun.damage = 0.85f;            // -15% damage
+        }
+
+        protected override string GetTitle() => "Gladiia - Undertow";
+        protected override string GetDescription() =>
+            "The current drags everything closer, one wide, heavy wave after another.";
+        protected override CardInfo.Rarity GetRarity() => CardInfo.Rarity.Uncommon;
+        protected override CardThemeColor.CardThemeColorType GetTheme() =>
+            CardThemeColor.CardThemeColorType.ColdBlue;
+
+        protected override CardInfoStat[] GetStats() => new[]
+        {
+            new CardInfoStat { positive = true,  stat = "Bullet Size", amount = "+25%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = true,  stat = "Reload Time", amount = "-25%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+            new CardInfoStat { positive = false, stat = "Damage",      amount = "-15%", simepleAmount = CardInfoStat.SimpleAmount.notAssigned },
+        };
     }
 }

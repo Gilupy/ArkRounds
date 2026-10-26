@@ -55,7 +55,10 @@ Everyone in a lobby needs the same mods and versions, or the game will desync or
 | Rosmontis - Memory Storm | Rare | +3 max ammo, +20% bullet size, -15% health |
 | Mostima - Time Lock | Rare | -50% block cooldown, +1 block charge, -25% damage |
 | Kal'tsit - Medical Protocol | Rare | +25% health, +3 HP/s regen, -20% attack speed |
-| Hellagur - Duelist's Crescendo | Rare | +7% damage per shot (max +300%), no reset on hit, clears at the end of each point |
+| Hellagur - Duelist's Crescendo | Rare | +7% damage per shot with no cap, no reset on hit, clears at the end of each point |
+| Ulpianus - Natural Holdfast | Rare | +50% health, +2 HP/s regen, +15% damage, -25% move speed |
+| Skadi the Corrupting Heart - Gnawing Tide | Rare | +30% lifesteal, +25% attack speed, -30% health |
+| Gladiia - Undertow | Uncommon | +25% bullet size, -25% reload time, -15% damage |
 
 ## Requirements
 
